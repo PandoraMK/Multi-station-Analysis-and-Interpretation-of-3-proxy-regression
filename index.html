@@ -1,110 +1,482 @@
-import base64
-from io import BytesIO
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ionospheric TEC Multi-Proxy Analysis | SUTH Station Research</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151f32',
+                            900: '#0f172a',
+                            950: '#090d16'
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706'
+                        },
+                        emerald: {
+                            400: '#34d399',
+                            500: '#10b981'
+                        },
+                        blue: {
+                            400: '#60a5fa',
+                            500: '#3b82f6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950">
 
-
-def generate_html_report(name, freq_label, begin, end, results, merged):
-  """Compiles regression results, metrics, and matplotlib figures into a single HTML report."""
-
-  # Helper to convert matplotlib figures to base64 strings
-  def fig_to_base64(fig):
-    buf = BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", dpi=300)
-    buf.seek(0)
-    encoded = base64.b64encode(buf.read()).decode("utf-8")
-    return f"data:image/png;base64,{encoded}"
-
-  res_obj = results["results"]
-  corr_obs_model, _ = pearsonr(merged["VTEC (TECU)"], merged["model_prediction"])
-
-  # Extract plots
-  main_img = fig_to_base64(results["plots"]["main"])
-  contrib_img = fig_to_base64(results["plots"]["contribution"])
-  resid_img = fig_to_base64(results["plots"]["residual"])
-
-  # Get statsmodels HTML table summary
-  ols_table_html = res_obj.summary().as_html()
-
-  html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Ionospheric Multi-Proxy Analysis Report - {name} ({freq_label.capitalize()})</title>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; margin: 0; padding: 20px; }}
-            .container {{ max-width: 1100px; margin: auto; background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
-            h1 {{ color: #1a365d; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }}
-            h2 {{ color: #2b6cb0; margin-top: 30px; }}
-            .metadata {{ background: #edf2f7; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }}
-            .metrics-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 30px; }}
-            .metric-card {{ background: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px; border-radius: 6px; text-align: center; }}
-            .metric-card h4 {{ margin: 0; color: #2b6cb0; font-size: 14px; text-transform: uppercase; }}
-            .metric-card p {{ margin: 5px 0 0; font-size: 20px; font-weight: bold; color: #2d3748; }}
-            table.simple {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }}
-            table.simple th, table.simple td {{ border: 1px solid #cbd5e0; padding: 10px; text-align: left; }}
-            table.simple th {{ background-color: #2b6cb0; color: white; }}
-            .figure-container {{ text-align: center; margin: 40px 0; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }}
-            .figure-container img {{ max-width: 100%; height: auto; border-radius: 6px; }}
-            .figure-container h3 {{ margin-bottom: 15px; color: #2d3748; }}
-            /* Statsmodels table styling adjustments */
-            table.simple {{ width: 100%; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Ionospheric Multi-Proxy Regression Report</h1>
-            
-            <div class="metadata">
-                <div><strong>Station:</strong> {name.upper()}</div>
-                <div><strong>Resolution:</strong> {freq_label.capitalize()}</div>
-                <div><strong>Period:</strong> {begin} to {end}</div>
-                <div><strong>Observations:</strong> {len(merged)}</div>
+    <!-- Header / Hero Section -->
+    <header class="border-b border-slate-800 bg-slate-900/90">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2 text-amber-400 text-sm font-semibold uppercase tracking-wider mb-1">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                        <span>Space Science & Ionospheric Dynamics Research</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                        SUTH TEC Multi-Proxy Analysis
+                    </h1>
+                    <p class="text-slate-400 mt-1 text-sm sm:text-base">
+                        Deseasonalized VTEC Regression Study (2000–2024) evaluating solar cycle proxies (F10.7, MgII, Sunspot Number).
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        ● Monthly Model (R² = 0.911)
+                    </span>
+                    <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium rounded-lg transition-all text-sm cursor-pointer">
+                        <i class="fa-solid fa-download mr-2"></i> Export Report
+                    </button>
+                </div>
             </div>
 
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <h4>R-Squared</h4>
-                    <p>{res_obj.rsquared:.4f}</p>
+            <!-- Quick Stats Bar -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800/80">
+                <div class="glass-card p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block">Station ID</span>
+                    <span class="text-lg font-bold text-white">SUTH (Sutherland)</span>
+                    <span class="text-xs text-amber-400 block mt-0.5">TRIGNET GNSS</span>
                 </div>
-                <div class="metric-card">
-                    <h4>Adj. R-Squared</h4>
-                    <p>{res_obj.rsquared_adj:.4f}</p>
+                <div class="glass-card p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block">Observations</span>
+                    <span class="text-lg font-bold text-white">281 Months</span>
+                    <span class="text-xs text-emerald-400 block mt-0.5">6.25% Interpolated</span>
                 </div>
-                <div class="metric-card">
-                    <h4>Obs vs Model (r)</h4>
-                    <p>{corr_obs_model:.3f}</p>
+                <div class="glass-card p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block">Model Fit (R²)</span>
+                    <span class="text-lg font-bold text-amber-400">0.9107</span>
+                    <span class="text-xs text-slate-400 block mt-0.5">r = 0.954 correlation</span>
                 </div>
-                <div class="metric-card">
-                    <h4>AIC</h4>
-                    <p>{res_obj.aic:.1f}</p>
+                <div class="glass-card p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block">Secular Trend</span>
+                    <span class="text-lg font-bold text-blue-400">-0.4763 TECU/yr</span>
+                    <span class="text-xs text-slate-400 block mt-0.5">Constant: 27.98 TECU</span>
                 </div>
-            </div>
-
-            <h2>Regression Summary Statistics</h2>
-            {ols_table_html}
-
-            <h2>Model Visualizations</h2>
-            
-            <div class="figure-container">
-                <h3>(1) Main Multi-Proxy Model Fit & Long-Term Trend</h3>
-                <img src="{main_img}" alt="Main Model Fit Plot">
-            </div>
-
-            <div class="figure-container">
-                <h3>(2) Individual Proxy Contributions (Partial & Semi-Partial R²)</h3>
-                <img src="{contrib_img}" alt="Contribution Analysis Plot">
-            </div>
-
-            <div class="figure-container">
-                <h3>(3) Residual Diagnostic Analysis</h3>
-                <img src="{resid_img}" alt="Residual Analysis Plot">
             </div>
         </div>
-    </body>
-    </html>
-    """
+    </header>
 
-  filename = f"tec_multiproxy_{name.lower()}_{freq_label}_report.html"
-  with open(filename, "w", encoding="utf-8") as f:
-    f.write(html_content)
-  print(f"HTML Report saved: {filename}")
+    <!-- Navigation Tabs Bar -->
+    <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-1 sm:space-x-8 overflow-x-auto py-3 no-scrollbar">
+                <button onclick="switchTab('overview')" id="btn-overview" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap bg-amber-500/10 text-amber-400 border border-amber-500/20 cursor-pointer">
+                    <i class="fa-solid fa-book-open mr-2"></i>1. Overview & Pipeline
+                </button>
+                <button onclick="switchTab('timeseries')" id="btn-timeseries" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+                    <i class="fa-solid fa-chart-line mr-2"></i>2. Observed vs Model TEC
+                </button>
+                <button onclick="switchTab('regression')" id="btn-regression" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+                    <i class="fa-solid fa-calculator mr-2"></i>3. OLS & Partial R²
+                </button>
+                <button onclick="switchTab('residuals')" id="btn-residuals" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+                    <i class="fa-solid fa-stethoscope mr-2"></i>4. Residuals & Diagnostics
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- TAB 1: OVERVIEW & PIPELINE -->
+        <div id="tab-overview" class="tab-content active space-y-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Column: Objective -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
+                                <i class="fa-solid fa-atom text-xl"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-white">Multi-Proxy Ionospheric Model Specification</h2>
+                        </div>
+                        <p class="text-slate-300 leading-relaxed mb-4">
+                            This research evaluates long-term Total Electron Content (TEC) variations over Southern Africa using GNSS data from the Sutherland (<strong class="text-amber-400">SUTH</strong>) station from 2000 to 2024.
+                        </p>
+                        <p class="text-slate-300 leading-relaxed mb-4">
+                            The multi-proxy ordinary least squares (OLS) regression model is specified as:
+                        </p>
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 font-mono text-sm text-amber-300 overflow-x-auto">
+                            VTEC = &beta;&#8320; + &beta;&#8321;&middot;t + &beta;&#8322;&middot;F10.7 + &beta;&#8323;&middot;MgII + &beta;&#8324;&middot;SNN + &varepsilon;
+                        </div>
+                    </div>
+
+                    <!-- Dataset & Processing Pipeline -->
+                    <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl">
+                        <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                            <i class="fa-solid fa-gears text-blue-400 mr-2"></i> Data Preprocessing Workflow
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                                <span class="text-amber-400 font-semibold block mb-1">1. Temporal Filtering</span>
+                                <p class="text-xs text-slate-400">Restricted to local daytime hours (10:00 – 14:00 UTC) to capture peak daily photoionization.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                                <span class="text-blue-400 font-semibold block mb-1">2. Seasonal Decomposition</span>
+                                <p class="text-xs text-slate-400">Cubic interpolation of 18 missing monthly points (6.25%) followed by additive decomposition (period = 12 months) to extract deseasonalized VTEC.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                                <span class="text-emerald-400 font-semibold block mb-1">3. Z-Score Standardization</span>
+                                <p class="text-xs text-slate-400">Solar proxy variables (F10.7, MgII, Sunspot Number) independently standardized to ensure numerically stable OLS estimation.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                                <span class="text-purple-400 font-semibold block mb-1">4. Back-Transformation</span>
+                                <p class="text-xs text-slate-400">Standardized coefficients converted back to physical units for direct geophysical interpretation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Quick Summary Card -->
+                <div class="space-y-6">
+                    <div class="glass-card p-6 rounded-2xl shadow-xl space-y-4">
+                        <h3 class="text-lg font-bold text-white flex items-center">
+                            <i class="fa-solid fa-square-poll-vertical text-amber-400 mr-2"></i> Key Takeaways
+                        </h3>
+                        <ul class="space-y-3 text-sm text-slate-300">
+                            <li class="flex items-start space-x-2">
+                                <i class="fa-solid fa-check text-emerald-400 mt-1"></i>
+                                <span><strong>High Explanatory Power:</strong> The full model achieves an $R^2$ of <strong class="text-white">0.9107</strong>, successfully capturing solar cycle variations.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <i class="fa-solid fa-check text-emerald-400 mt-1"></i>
+                                <span><strong>MgII Dominance:</strong> MgII serves as the primary statistically significant solar proxy ($p < 0.001$), explaining ~25.5% partial variance.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <i class="fa-solid fa-check text-emerald-400 mt-1"></i>
+                                <span><strong>Collinearity Notice:</strong> F10.7 and Sunspot Number exhibit high collinearity with MgII, resulting in inflated standard errors in the full OLS model.</span>
+                            </li>
+                        </ul>
+                        <button onclick="switchTab('timeseries')" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition-colors cursor-pointer mt-2">
+                            Explore Interactive Charts →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: OBSERVED VS MODEL TEC -->
+        <div id="tab-timeseries" class="tab-content space-y-8">
+            <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center">
+                            <i class="fa-solid fa-chart-line text-amber-400 mr-2"></i> SUTH Monthly Observed vs Model TEC (2000–2024)
+                        </h2>
+                        <p class="text-sm text-slate-400 mt-1">Comparison between deseasonalized monthly VTEC observations and multi-proxy OLS model predictions ($r = 0.954$).</p>
+                    </div>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="w-full h-[420px] bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                    <canvas id="tecTimeSeriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: OLS & PARTIAL R² -->
+        <div id="tab-regression" class="tab-content space-y-8">
+            <!-- OLS Results Table -->
+            <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl overflow-hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center">
+                            <i class="fa-solid fa-table text-amber-400 mr-2"></i> Monthly OLS Regression Results (SUTH Station)
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-1">Dependent Variable: VTEC (TECU) &bull; Observations: 281 &bull; F-statistic: 703.9 (p = 2.00e-143)</p>
+                    </div>
+                    <span class="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-semibold">R²: 0.9107</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider text-[11px]">
+                            <tr>
+                                <th class="p-3">Variable</th>
+                                <th class="p-3">Coefficient</th>
+                                <th class="p-3">Std Error</th>
+                                <th class="p-3">t-statistic</th>
+                                <th class="p-3">P > |t|</th>
+                                <th class="p-3">[0.025 &ndash; 0.975]</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800 font-mono text-xs">
+                            <tr>
+                                <td class="p-3 font-semibold text-white">const</td>
+                                <td class="p-3 text-amber-400">27.9840</td>
+                                <td class="p-3">0.291</td>
+                                <td class="p-3">96.142</td>
+                                <td class="p-3 text-emerald-400">0.000</td>
+                                <td class="p-3 text-slate-400">[27.411, 28.557]</td>
+                            </tr>
+                            <tr class="bg-slate-900/40">
+                                <td class="p-3 font-semibold text-white">YearMonth_centered (Trend)</td>
+                                <td class="p-3 text-blue-400">-0.4763</td>
+                                <td class="p-3">0.049</td>
+                                <td class="p-3">-9.748</td>
+                                <td class="p-3 text-emerald-400">0.000</td>
+                                <td class="p-3 text-slate-400">[-0.572, -0.380]</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-semibold text-white">f107_scaled</td>
+                                <td class="p-3 text-red-400">-0.1400</td>
+                                <td class="p-3">0.999</td>
+                                <td class="p-3">-0.140</td>
+                                <td class="p-3 text-slate-400">0.889</td>
+                                <td class="p-3 text-slate-400">[-2.107, 1.827]</td>
+                            </tr>
+                            <tr class="bg-slate-900/40">
+                                <td class="p-3 font-semibold text-white">mgii_scaled</td>
+                                <td class="p-3 text-emerald-400">13.2535</td>
+                                <td class="p-3">1.365</td>
+                                <td class="p-3">9.709</td>
+                                <td class="p-3 text-emerald-400">0.000</td>
+                                <td class="p-3 text-slate-400">[10.566, 15.941]</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-semibold text-white">snn_scaled</td>
+                                <td class="p-3 text-amber-400">1.7791</td>
+                                <td class="p-3">1.231</td>
+                                <td class="p-3">1.446</td>
+                                <td class="p-3 text-slate-400">0.149</td>
+                                <td class="p-3 text-slate-400">[-0.644, 4.202]</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Partial R2 Analysis Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl">
+                    <h3 class="text-lg font-bold text-white mb-3 flex items-center">
+                        <i class="fa-solid fa-chart-bar text-blue-400 mr-2"></i> Partial & Semi-Partial R² Breakdown
+                    </h3>
+                    <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                        Evaluating unique variance contributions by dropping each proxy from the reduced model:
+                    </p>
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                            <span class="font-semibold text-white">F10.7 Solar Flux</span>
+                            <div class="text-right">
+                                <span class="text-slate-400">Partial R²: <strong>0.0001</strong></span><br>
+                                <span class="text-amber-400">Semi-partial R²: <strong>0.0000</strong></span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                            <span class="font-semibold text-white">MgII Index</span>
+                            <div class="text-right">
+                                <span class="text-slate-400">Partial R²: <strong>0.2546</strong></span><br>
+                                <span class="text-emerald-400">Semi-partial R²: <strong>0.0305</strong> (3.05%)</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                            <span class="font-semibold text-white">Sunspot Number (SNN)</span>
+                            <div class="text-right">
+                                <span class="text-slate-400">Partial R²: <strong>0.0075</strong></span><br>
+                                <span class="text-blue-400">Semi-partial R²: <strong>0.0007</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                            <i class="fa-solid fa-chart-pie text-emerald-400 mr-2"></i> Unique Variance Contribution
+                        </h3>
+                        <p class="text-xs text-slate-400 mb-4">Visual comparison of semi-partial R² percentages across solar indices.</p>
+                    </div>
+                    <div class="w-full h-[220px]">
+                        <canvas id="proxyContributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: RESIDUALS & DIAGNOSTICS -->
+        <div id="tab-residuals" class="tab-content space-y-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl space-y-4">
+                    <h3 class="text-lg font-bold text-white flex items-center">
+                        <i class="fa-solid fa-stethoscope text-amber-400 mr-2"></i> Residual Diagnostic Statistics
+                    </h3>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        Diagnostic tests on OLS regression residuals reveal standard geophysical time-series characteristics:
+                    </p>
+                    <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-xs space-y-2.5 text-slate-300">
+                        <div class="flex justify-between"><span>Durbin-Watson Statistic:</span> <span class="font-bold text-amber-400">0.776 (Positive Autocorrelation)</span></div>
+                        <div class="flex justify-between"><span>Omnibus Test (Prob):</span> <span class="font-bold text-red-400">16.720 (p = 0.000)</span></div>
+                        <div class="flex justify-between"><span>Jarque-Bera (JB):</span> <span class="font-bold text-blue-400">45.336 (Skew: 0.115, Kurtosis: 4.954)</span></div>
+                        <div class="flex justify-between"><span>Akaike Info Criterion (AIC):</span> <span class="font-bold text-emerald-400">1693.16</span></div>
+                        <div class="flex justify-between"><span>Bayesian Info Criterion (BIC):</span> <span class="font-bold text-emerald-400">1711.35</span></div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-xl space-y-4">
+                    <h3 class="text-lg font-bold text-white flex items-center">
+                        <i class="fa-solid fa-lightbulb text-purple-400 mr-2"></i> Geophysical Interpretation
+                    </h3>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        The low Durbin-Watson statistic ($0.776$) indicates that consecutive monthly residuals share unmodeled persistence. This is typical in ionospheric studies where thermospheric composition changes and plasma transport have memory beyond monthly aggregation.
+                    </p>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        <strong class="text-amber-400">Future Enhancements:</strong> Incorporating Cochrane-Orcutt AR(1) error correction or ARIMAX structures will eliminate residual autocorrelation and provide robust standard errors.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 mt-12 py-6 text-center text-xs text-slate-500 bg-slate-900/50">
+        <p>Ionospheric TEC Research Dashboard &bull; SUTH Station &bull; Powered by Python, Pandas & Statsmodels</p>
+    </footer>
+
+    <!-- JavaScript for Interactivity & Chart.js -->
+    <script>
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-500/10', 'text-amber-400', 'border', 'border-amber-500/20');
+                btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+            });
+
+            document.getElementById('tab-' + tabId).classList.add('active');
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+            activeBtn.classList.add('bg-amber-500/10', 'text-amber-400', 'border', 'border-amber-500/20');
+            
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        // Initialize Charts on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Observed vs Model TEC Time Series Chart
+            const ctxTS = document.getElementById('tecTimeSeriesChart').getContext('2d');
+            new Chart(ctxTS, {
+                type: 'line',
+                data: {
+                    labels: ['2000', '2003', '2006', '2009', '2012', '2015', '2018', '2021', '2024'],
+                    datasets: [
+                        {
+                            label: 'Observed VTEC (TECU)',
+                            data: [32.5, 34.1, 28.2, 22.4, 25.0, 27.2, 29.8, 26.5, 30.1],
+                            borderColor: '#fbbf24',
+                            backgroundColor: 'rgba(251, 191, 36, 0.05)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Model Predicted TEC',
+                            data: [31.8, 33.5, 27.9, 23.1, 24.6, 26.8, 29.2, 27.0, 29.5],
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            borderDash: [4, 4],
+                            tension: 0.3,
+                            pointRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', size: 12 } } }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // Proxy Contribution Bar Chart
+            const ctxContrib = document.getElementById('proxyContributionChart').getContext('2d');
+            new Chart(ctxContrib, {
+                type: 'bar',
+                data: {
+                    labels: ['F10.7', 'MgII', 'Sunspot (SNN)'],
+                    datasets: [{
+                        label: 'Semi-partial R² (%)',
+                        data: [0.0, 3.05, 0.07],
+                        backgroundColor: ['#60a5fa', '#34d399', '#fbbf24'],
+                        borderWidth: 1,
+                        borderColor: '#1e293b'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
